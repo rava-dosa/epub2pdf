@@ -7,5 +7,10 @@
 # Known Bugs
 1. Problem in image addition
 2. Pdf Outline issues.
-3. Some books have different data folder like "OPS" instead of "OEBPS" and "styles" instead of "css"
-4. page change for each chapter.
+3. page change for each chapter.
+
+# How it works
+1. Epub is zipped file containing xhtml and metadata.
+2. So I used weasyprint to convert xhtml to pdf.
+3. But how to know which html to add first.
+4. That information is contained in *.ncx inside epub bundle. BS4 is used to read ncx file.
