@@ -6,6 +6,7 @@ import sys
 import shutil
 import zipfile
 import os
+from inspect import currentframe, getframeinfo
 global_root_dir=""
 filename=""
 def read_css():
@@ -28,8 +29,14 @@ def writepdf(file_data):
 
 def generatepdf():
     f=open(global_root_dir+"temp.xhtml","w")
-    with open (global_root_dir+"toc.ncx", "r") as myfile:
-        data=myfile.read()
+    try:
+        with open (global_root_dir+"toc.ncx", "r") as myfile:
+            data=myfile.read()
+    except:
+        frameinfo = getframeinfo(currentframe())
+        print("NCX file not found, quitting")
+        print(frameinfo.filename, frameinfo.lineno)
+        quit()
     soup = BeautifulSoup(data, 'html.parser')
     l=soup.find_all("content")
     prev=""
