@@ -1,5 +1,5 @@
 # Instruction to Setup
-1. conda env create -f environment.yml
+1. conda env create -f environment.yml or pip install -r requirements.txt
 2. source activate epub
 
 # Epub2pdf
@@ -14,11 +14,15 @@
 1. Pdf Outline issues.
 2. page change for each chapter.
 
-# How it works
+# How it works [Epub]
 1. Epub is zipped file containing xhtml and metadata.
 2. So I used weasyprint to convert xhtml to pdf.
 3. But how to know which html to add first.
 4. That information is contained in *.ncx inside epub bundle. BS4 is used to read ncx file.
+
+# How it works [Mobi]
+1. Kindle unpack to extract data.
+2. Weasyprint to convert html to pdf.
 
 # Credits
 1. [KindleUnpack](https://github.com/kevinhendricks/KindleUnpack)
