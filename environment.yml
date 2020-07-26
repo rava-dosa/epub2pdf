@@ -1,0 +1,40 @@
+name: epub
+channels:
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - ca-certificates=2020.6.24=0
+  - certifi=2020.6.20=py37_0
+  - libedit=3.1.20191231=h14c3975_1
+  - libffi=3.2.1=hd88cf55_4
+  - libgcc-ng=9.1.0=hdf63c60_0
+  - libstdcxx-ng=9.1.0=hdf63c60_0
+  - ncurses=6.2=he6710b0_1
+  - openssl=1.0.2u=h7b6447c_0
+  - pip=20.1.1=py37_1
+  - python=3.7.0=h6e4f718_3
+  - readline=7.0=h7b6447c_5
+  - setuptools=49.2.0=py37_0
+  - sqlite=3.32.3=h62c20be_0
+  - tk=8.6.10=hbc83047_0
+  - wheel=0.34.2=py37_0
+  - xz=5.2.5=h7b6447c_0
+  - zlib=1.2.11=h7b6447c_3
+  - pip:
+    - beautifulsoup4==4.9.1
+    - cairocffi==1.1.0
+    - cairosvg==2.4.2
+    - cffi==1.14.0
+    - cssselect2==0.3.0
+    - defusedxml==0.6.0
+    - html5lib==1.1
+    - pillow==7.2.0
+    - pycparser==2.20
+    - pyphen==0.9.5
+    - six==1.15.0
+    - soupsieve==2.0.1
+    - tinycss2==1.0.2
+    - weasyprint==51
+    - webencodings==0.5.1
+prefix: /home/user/miniconda/envs/epub
+
