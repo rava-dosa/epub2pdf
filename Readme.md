@@ -7,3 +7,5 @@
 # Known Bugs
 1. Problem in image addition
 2. Pdf Outline issues.
+3. Some books have different data folder like "OPS" instead of "OEBPS" and "styles" instead of "css"
+4. page change for each chapter.

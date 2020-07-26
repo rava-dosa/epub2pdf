@@ -5,14 +5,18 @@ from os import listdir
 import sys
 import shutil
 import zipfile
+import os
 global_root_dir=""
 filename=""
 def read_css():
     font_config = FontConfiguration()
     ret=[]
-    l=listdir(global_root_dir+"css")
-    for x in l:
-        ret.append(global_root_dir+"css/"+x)
+    try:
+        l=listdir(global_root_dir+"css")
+        for x in l:
+            ret.append(global_root_dir+"css/"+x)
+    except:
+        print("Css not found")
     return ret
 
 def writepdf(file_data):
@@ -55,8 +59,14 @@ if __name__ == "__main__":
         print("It's a {} file".format(last4))
         quit()
     shutil.copy(unzip_file_path,"/tmp/epub_temp.zip")
+    try:
+        shutil.rmtree("/tmp/epub_temp")
+    except:
+        print("")
+    os.mkdir('/tmp/epub_temp')
     extract_zip_to_temp("/tmp/epub_temp.zip")
     global_root_dir="/tmp/epub_temp/OEBPS/"
     # print(unzip_file_path)
     filename=filename[:-4]
     generatepdf()
+    shutil.rmtree("/tmp/epub_temp")
