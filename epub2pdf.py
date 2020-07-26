@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from weasyprint import HTML, CSS
+from weasyprint import HTML, CSS, default_url_fetcher
 from weasyprint.fonts import FontConfiguration
 from os import listdir
 import sys
@@ -7,9 +7,32 @@ import shutil
 import zipfile
 import os
 from inspect import currentframe, getframeinfo
+import logging
+logger = logging.getLogger('weasyprint')
+logger.addHandler(logging.FileHandler('/tmp/weasyprint.log'))
 global_root_dir=""
 filename=""
 opf_name=""
+image_base=""
+def image_base_url():
+    global global_root_dir, image_base
+    global opf_name
+    font_config = FontConfiguration()
+    ret=[]
+    f=open(global_root_dir+opf_name,"r")
+    soup = BeautifulSoup(f.read(), 'lxml')
+    a=soup.find("manifest")
+    try:
+        img_jpg=a.find("item",{"media-type":"image/jpeg"}).get("href")
+        image_base=global_root_dir+img_jpg.split("/")[0]+"/"
+    except:
+        print("no jpeg")
+    try:
+        img_png=a.find("item",{"media-type":"image/png"}).get("href")
+        image_base=global_root_dir+img_png.split("/")[0]+"/"
+    except:
+        print("no png")
+    
 def read_css():
     global global_root_dir
     global opf_name
@@ -64,10 +87,11 @@ def get_ncx():
             return f.read()
         
 def writepdf(file_data):
-    global global_root_dir
+    global global_root_dir,image_base
     font_config=FontConfiguration()
     css=read_css()
-    html=HTML(string=file_data)
+    image_base_url()
+    html=HTML(string=file_data,base_url=image_base,encoding="utf8")
     # print(css)
     html.write_pdf(filename+'.pdf', stylesheets=css,font_config=font_config)
 
@@ -104,8 +128,6 @@ def generatepdf():
 def extract_zip_to_temp(path):
     with zipfile.ZipFile(path, 'r') as zip_ref:
         ret=zip_ref.extractall("/tmp/epub_temp/")
-        print(ret)
-
 
 if __name__ == "__main__": 
     unzip_file_path=sys.argv[1]

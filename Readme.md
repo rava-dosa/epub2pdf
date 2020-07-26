@@ -5,9 +5,8 @@
 4. It will generate {filename}.pdf in current directory
 
 # Known Bugs
-1. Problem in image addition
-2. Pdf Outline issues.
-3. page change for each chapter.
+1. Pdf Outline issues.
+2. page change for each chapter.
 
 # How it works
 1. Epub is zipped file containing xhtml and metadata.
