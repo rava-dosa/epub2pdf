@@ -116,9 +116,12 @@ def generatepdf():
         if(prev==temp1):
             continue
         else:
-            with open (global_root_dir+ temp1, "r") as xhtml_epub:
-                xhtml_data=xhtml_epub.read()
-                f.write(xhtml_data)
+            try:
+                with open (global_root_dir+ temp1, "r") as xhtml_epub:
+                    xhtml_data=xhtml_epub.read()
+                    f.write(xhtml_data)
+            except FileNotFoundError:
+                print(global_root_dir + temp1 + ' not found, skipping...')
         prev=temp1
     f.close()
     f=open(global_root_dir+"temp.xhtml","r")
@@ -146,6 +149,6 @@ if __name__ == "__main__":
     extract_zip_to_temp("/tmp/epub_temp.zip")
     global_root_dir="/tmp/epub_temp/"
     # print(unzip_file_path)
-    filename=filename[:-4]
+    filename=filename[:-5]
     generatepdf()
     shutil.rmtree("/tmp/epub_temp")
