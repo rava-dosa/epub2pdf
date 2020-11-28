@@ -10,5 +10,6 @@ if __name__ == "__main__":
     image_base=filepath[:-9]
     html=HTML(filename=filepath,base_url=image_base,encoding="utf8")
     filename=unzip_file_path.split("/")[-1]
-    html.write_pdf(filename+'.pdf')
+    # Get rid of .mobi extension when add '.pdf'
+    html.write_pdf(filename[:-5] + '.pdf')
     shutil.rmtree(tempdir)
