@@ -3,12 +3,13 @@ import sys
 import shutil
 import zipfile
 import os
+import time
 import logging
 from sys import platform
 
 from tqdm import tqdm
 from bs4 import BeautifulSoup
-from weasyprint import HTML, CSS, default_url_fetcher
+from weasyprint import HTML
 from weasyprint.fonts import FontConfiguration
 
 
@@ -19,11 +20,14 @@ else:
     tmp_dir = "tmp"
     if not os.path.exists(tmp_dir):
         os.mkdir(tmp_dir)
+extract_dir=os.path.join(tmp_dir,'extract/')
+extract_zip=os.path.join(tmp_dir,'epub_temp.zip')
+
 logger = logging.getLogger("weasyprint")
-logger.addHandler(logging.FileHandler(tmp_dir + "/weasyprint.log"))
+logger.addHandler(logging.FileHandler(os.path.join(tmp_dir , "weasyprint.log")))
 
 def image_base_url(root_dir,opf_name):
-    f = open(root_dir + opf_name, "r", encoding="utf8")
+    f = open(os.path.join(root_dir ,opf_name), "r", encoding="utf8")
     soup = BeautifulSoup(f.read(), "lxml")
     a = soup.find("manifest")
     try:
@@ -50,7 +54,7 @@ def image_base_url(root_dir,opf_name):
 
 def get_files(root_dir, opf_name):
     ret = []
-    f = open(root_dir + opf_name, "r", encoding="utf8")
+    f = open(os.path.join(root_dir, opf_name), "r", encoding="utf8")
     soup = BeautifulSoup(f.read(), "lxml")
     xml_files = soup.find_all("item", {"media-type": "application/xhtml+xml"})
     if xml_files is None:
@@ -63,7 +67,7 @@ def get_files(root_dir, opf_name):
 
 def read_css(root_dir,opf_name):
     ret = []
-    f = open(root_dir + opf_name, "r", encoding="utf8")
+    f = open(os.path.join(root_dir , opf_name), "r", encoding="utf8")
     soup = BeautifulSoup(f.read(), "lxml")
     a = soup.find("manifest")
 
@@ -77,7 +81,7 @@ def read_css(root_dir,opf_name):
     return ret
 
 def get_opf_name(root_dir):
-    f = open(root_dir + "META-INF/" + "container.xml", "r", encoding="utf8")
+    f = open(os.path.join(root_dir , "META-INF/" , "container.xml"), "r", encoding="utf8")
     data = f.read()
     soup = BeautifulSoup(data, "html.parser")
     l = soup.find_all("rootfile")
@@ -100,8 +104,9 @@ def writepdf(file_data,filename,root_dir,opf_name):
     css = read_css(root_dir,opf_name)
     image_base=  image_base_url(root_dir,opf_name)
     html = HTML(string=file_data, base_url=image_base, encoding="utf8")
-    # print(css)
-    html.write_pdf(filename + ".pdf", stylesheets=css, font_config=font_config)
+    print("rendering html to pdf ...")
+    html.write_pdf(filename, stylesheets=css, font_config=font_config)
+    print("finished! save to ",filename)
 
 
 def get_href(matched, startStr="href=", endStr="#"):
@@ -124,7 +129,7 @@ def process_href_tag(data):
     return file_data_m
 
 def generatepdf(root_dir,opf_name):
-    f = open(root_dir + "temp.xhtml", "w", encoding="utf8")
+    f = open(os.path.join(root_dir , "temp.xhtml"), "w", encoding="utf8")
     toc_files = get_files(root_dir, opf_name)
     prev = ""
     file_cnt=len(toc_files)
@@ -135,7 +140,7 @@ def generatepdf(root_dir,opf_name):
         if prev == toc_file:
             continue
         else:
-            with open(root_dir + toc_file, "r", encoding="utf8") as xhtml_epub:
+            with open(os.path.join(root_dir, toc_file), "r", encoding="utf8") as xhtml_epub:
                 xhtml_data = xhtml_epub.read()
                 xhtml_data_m = process_href_tag(xhtml_data)
                 f.write(xhtml_data_m)
@@ -145,9 +150,9 @@ def generatepdf(root_dir,opf_name):
     
 
 
-def extract_zip_to_temp(path):
-    with zipfile.ZipFile(path, "r") as zip_ref:
-        ret = zip_ref.extractall(tmp_dir + "/epub_temp/")
+def extract_zip_to_temp(extract_zip,extract_dir):
+    with zipfile.ZipFile(extract_zip, "r") as zip_ref:
+        ret = zip_ref.extractall(extract_dir)
 
 
 if __name__ == "__main__":
@@ -158,18 +163,23 @@ if __name__ == "__main__":
     if file_suffix != "epub":
         print("It's a {} file".format(file_suffix))
         quit()
-    shutil.copy(unzip_file_path, tmp_dir + "/epub_temp.zip")
+    shutil.copy(unzip_file_path, extract_zip)
     try:
-        shutil.rmtree(tmp_dir + "/epub_temp")
+        shutil.rmtree(extract_dir)
     except:
         print("")
-    os.mkdir(tmp_dir + "/epub_temp")
-    extract_zip_to_temp(tmp_dir + "/epub_temp.zip")
-    root_dir = tmp_dir + "/epub_temp/"
+    
+    os.mkdir(extract_dir)
+    extract_zip_to_temp(extract_zip,extract_dir)
+    print(extract_dir)
     # print(unzip_file_path)
-    filename = filename.split(".")[0]
-    opf_name=get_opf_name(root_dir)
-    generatepdf(root_dir,opf_name)
-    f = open(root_dir + "temp.xhtml", "r", encoding="utf8")
-    writepdf(f.read(),filename,root_dir,opf_name )
-    shutil.rmtree(tmp_dir + "/epub_temp")
+    filename = filename.split(".")[0] + ".pdf"
+    opf_name=get_opf_name(extract_dir)
+    generatepdf(extract_dir,opf_name)
+    with open(os.path.join(extract_dir , "temp.xhtml"), "r", encoding="utf8") as f:
+        temp_xhtml=f.read()
+    start=time.time()
+    
+    writepdf(temp_xhtml,filename,extract_dir,opf_name )
+    print('rendering time {0:f} s,'.format((time.time()-start)))
+    shutil.rmtree(extract_dir)

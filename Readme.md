@@ -24,6 +24,11 @@
 - toc lost
   use regex to update hyperlink
 
+# TODO 
+- [] config Font
+- [] better css format
+- [] transfer update to mobi
+
 # How it works [Epub]
 1. Epub is zipped file containing xhtml and metadata.
 2. So I used weasyprint to convert xhtml to pdf.
