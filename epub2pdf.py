@@ -6,6 +6,7 @@ import os
 import logging
 from sys import platform
 
+from tqdm import tqdm
 from bs4 import BeautifulSoup
 from weasyprint import HTML, CSS, default_url_fetcher
 from weasyprint.fonts import FontConfiguration
@@ -20,16 +21,9 @@ else:
         os.mkdir(tmp_dir)
 logger = logging.getLogger("weasyprint")
 logger.addHandler(logging.FileHandler(tmp_dir + "/weasyprint.log"))
-global_root_dir = ""
-filename = ""
-opf_name = ""
-image_base = ""
 
-
-def image_base_url():
-    global global_root_dir, image_base
-    global opf_name
-    f = open(global_root_dir + opf_name, "r", encoding="utf8")
+def image_base_url(root_dir,opf_name):
+    f = open(root_dir + opf_name, "r", encoding="utf8")
     soup = BeautifulSoup(f.read(), "lxml")
     a = soup.find("manifest")
     try:
@@ -38,7 +32,7 @@ def image_base_url():
             try:
                 if len(img_jpg.get("href").split("/")) > 1:
                     img_url = img_jpg.get("href").split("/")[0]
-                    image_base = global_root_dir + img_url + "/"
+                    image_base = root_dir + img_url + "/"
                     return
             except Exception as e:
                 print(e)
@@ -48,9 +42,10 @@ def image_base_url():
         print("no jpeg")
     try:
         img_png = a.find("item", {"media-type": "image/png"}).get("href")
-        image_base = global_root_dir + img_png.split("/")[0] + "/"
+        image_base = root_dir + img_png.split("/")[0] + "/"
     except:
         print("no png")
+    return image_base
 
 
 def get_files(root_dir, opf_name):
@@ -66,12 +61,9 @@ def get_files(root_dir, opf_name):
     return ret
 
 
-def read_css():
-    global global_root_dir
-    global opf_name
-    font_config = FontConfiguration()
+def read_css(root_dir,opf_name):
     ret = []
-    f = open(global_root_dir + opf_name, "r", encoding="utf8")
+    f = open(root_dir + opf_name, "r", encoding="utf8")
     soup = BeautifulSoup(f.read(), "lxml")
     a = soup.find("manifest")
 
@@ -81,14 +73,11 @@ def read_css():
         print("Css not found")
     else:
         for css_file in css_files:
-            ret.append(global_root_dir + css_file.get("href"))
+            ret.append(root_dir + css_file.get("href"))
     return ret
 
-
-def get_ncx():
-    global global_root_dir
-    global opf_name
-    f = open(global_root_dir + "META-INF/" + "container.xml", "r", encoding="utf8")
+def get_opf_name(root_dir):
+    f = open(root_dir + "META-INF/" + "container.xml", "r", encoding="utf8")
     data = f.read()
     soup = BeautifulSoup(data, "html.parser")
     l = soup.find_all("rootfile")
@@ -100,26 +89,16 @@ def get_ncx():
         pathx = l1.get("full-path")
         if "/" in pathx:
             splitx = pathx.split("/")
-            global_root_dir = global_root_dir + splitx[0] + "/"
+            root_dir = root_dir + splitx[0] + "/"
             opf_name = splitx[1]
         else:
             opf_name = pathx
+    return opf_name
 
-        f = open(global_root_dir + pathx, "r", encoding="utf8")
-        soup = BeautifulSoup(f.read(), "lxml")
-        ncx_file = soup.find("manifest").find(id="ncx").get("href")
-        if ncx_file is None:
-            print("NCX file not found")
-            quit()
-        f = open(global_root_dir + ncx_file, "r", encoding="utf8")
-        return f.read()
-
-
-def writepdf(file_data):
-    global global_root_dir, image_base
+def writepdf(file_data,filename,root_dir,opf_name):
     font_config = FontConfiguration()
-    css = read_css()
-    image_base_url()
+    css = read_css(root_dir,opf_name)
+    image_base=  image_base_url(root_dir,opf_name)
     html = HTML(string=file_data, base_url=image_base, encoding="utf8")
     # print(css)
     html.write_pdf(filename + ".pdf", stylesheets=css, font_config=font_config)
@@ -139,31 +118,31 @@ def get_href(matched, startStr="href=", endStr="#"):
 def process_href_tag(data):
     startStr = "href="
     endStr = "#"
-    patternStr = r'<.*%s(["\' ]+)(.*?)%s.*>' % (startStr, endStr)
     patternStr = r'%s(["\' ]+)(.*?)%s' % (startStr, endStr)
     p = re.compile(patternStr, re.IGNORECASE)
     file_data_m = re.sub(p, get_href, data, count=0, flags=0)
     return file_data_m
 
-def generatepdf():
-    global global_root_dir
-    data = get_ncx()
-    f = open(global_root_dir + "temp.xhtml", "w", encoding="utf8")
-    toc_files = get_files(global_root_dir, opf_name)
+def generatepdf(root_dir,opf_name):
+    f = open(root_dir + "temp.xhtml", "w", encoding="utf8")
+    toc_files = get_files(root_dir, opf_name)
     prev = ""
-    for toc_file in toc_files:
+    file_cnt=len(toc_files)
+    progress_bar=tqdm(range(file_cnt), desc="Generating PDF")
+
+    for i,toc_file in zip(progress_bar,toc_files):
+        progress_bar.set_description(f'{i+1}/{file_cnt}')
         if prev == toc_file:
             continue
         else:
-            with open(global_root_dir + toc_file, "r", encoding="utf8") as xhtml_epub:
+            with open(root_dir + toc_file, "r", encoding="utf8") as xhtml_epub:
                 xhtml_data = xhtml_epub.read()
                 xhtml_data_m = process_href_tag(xhtml_data)
                 f.write(xhtml_data_m)
         prev = toc_file
 
     f.close()
-    f = open(global_root_dir + "temp.xhtml", "r", encoding="utf8")
-    writepdf(f.read())
+    
 
 
 def extract_zip_to_temp(path):
@@ -175,9 +154,9 @@ if __name__ == "__main__":
     unzip_file_path = sys.argv[1]
     filename = unzip_file_path.split("/")[-1]
     print(filename)
-    last4 = filename[-4:]
-    if last4 != "epub":
-        print("It's a {} file".format(last4))
+    file_suffix = filename.split(".")[-1]
+    if file_suffix != "epub":
+        print("It's a {} file".format(file_suffix))
         quit()
     shutil.copy(unzip_file_path, tmp_dir + "/epub_temp.zip")
     try:
@@ -186,8 +165,11 @@ if __name__ == "__main__":
         print("")
     os.mkdir(tmp_dir + "/epub_temp")
     extract_zip_to_temp(tmp_dir + "/epub_temp.zip")
-    global_root_dir = tmp_dir + "/epub_temp/"
+    root_dir = tmp_dir + "/epub_temp/"
     # print(unzip_file_path)
-    filename = filename[:-4]
-    generatepdf()
+    filename = filename.split(".")[0]
+    opf_name=get_opf_name(root_dir)
+    generatepdf(root_dir,opf_name)
+    f = open(root_dir + "temp.xhtml", "r", encoding="utf8")
+    writepdf(f.read(),filename,root_dir,opf_name )
     shutil.rmtree(tmp_dir + "/epub_temp")
