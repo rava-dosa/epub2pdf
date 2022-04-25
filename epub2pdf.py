@@ -31,8 +31,20 @@ def image_base_url():
     soup = BeautifulSoup(f.read(), 'lxml')
     a=soup.find("manifest")
     try:
-        img_jpg=a.find("item",{"media-type":"image/jpeg"}).get("href")
-        image_base=global_root_dir+img_jpg.split("/")[0]+"/"
+        # img_jpg=soup.find("item",{"media-type":"image/jpeg"}).get("href")
+        # soup.find("item",{"media-type":"image/jpeg"}).get("href")
+        img_jpgs=soup.find_all("item",{"media-type":"image/jpeg"})
+        for img_jpg in img_jpgs:
+            try:
+                if len(img_jpg.get('href').split("/"))>1:
+                    img_url= img_jpg.get('href').split("/")[0]
+                    print(img_url)
+                    image_base=global_root_dir+img_url+"/"
+                    return
+            except Exception as e:
+                print(e)
+
+                pass
     except:
         print("no jpeg")
     try:
@@ -49,11 +61,14 @@ def read_css():
     f=open(global_root_dir+opf_name,"r",encoding="utf8")
     soup = BeautifulSoup(f.read(), 'lxml')
     a=soup.find("manifest")
-    css_file=a.find("item",{"media-type":"text/css"}).get("href")
-    if(css_file is None):
+
+    # css_file=a.find("item",{"media-type":"text/css"}).get("href")
+    css_files=soup.find_all("item",{"media-type":"text/css"})
+    if(css_files is None):
         print("Css not found")
     else:
-        ret.append(global_root_dir+css_file)
+        for css_file in css_files:
+            ret.append(global_root_dir+css_file.get("href"))
     return ret
 
 def get_ncx():
