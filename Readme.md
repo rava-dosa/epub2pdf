@@ -1,4 +1,5 @@
 # Instruction to Setup
+0. (Windows) install [gtk3 runtime](https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases)
 1. conda env create -f environment.yml or pip install -r requirements.txt
 2. source activate epub
 
@@ -15,7 +16,7 @@
 2. page change for each chapter.
 3. page lost
 
-# Fix Bugs
+# Fix Bugs (on Epub)
 - not support Chinese  
   use `encoding=utf8` when write/read files
 - page lost  
