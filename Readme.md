@@ -13,6 +13,13 @@
 # Known Bugs
 1. Pdf Outline issues.
 2. page change for each chapter.
+3. page lost
+
+# Fix Bugs
+- not support Chinese  
+  use `encoding=utf8` when write/read files
+- page lost  
+ locate content files in content.opf instead of toc.ncx
 
 # How it works [Epub]
 1. Epub is zipped file containing xhtml and metadata.
