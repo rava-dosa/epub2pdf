@@ -8,8 +8,16 @@ import zipfile
 import os
 from inspect import currentframe, getframeinfo
 import logging
+from sys import platform
+if platform == "linux" or platform == "linux2":
+    # linux
+    tmp_dir='/tmp'
+else:
+    tmp_dir='tmp'
+    if not os.path.exists(tmp_dir):
+        os.mkdir(tmp_dir)
 logger = logging.getLogger('weasyprint')
-logger.addHandler(logging.FileHandler('/tmp/weasyprint.log'))
+logger.addHandler(logging.FileHandler(tmp_dir+'/weasyprint.log'))
 global_root_dir=""
 filename=""
 opf_name=""
@@ -19,7 +27,7 @@ def image_base_url():
     global opf_name
     font_config = FontConfiguration()
     ret=[]
-    f=open(global_root_dir+opf_name,"r")
+    f=open(global_root_dir+opf_name,"r",encoding="utf8")
     soup = BeautifulSoup(f.read(), 'lxml')
     a=soup.find("manifest")
     try:
@@ -38,7 +46,7 @@ def read_css():
     global opf_name
     font_config = FontConfiguration()
     ret=[]
-    f=open(global_root_dir+opf_name,"r")
+    f=open(global_root_dir+opf_name,"r",encoding="utf8")
     soup = BeautifulSoup(f.read(), 'lxml')
     a=soup.find("manifest")
     css_file=a.find("item",{"media-type":"text/css"}).get("href")
@@ -51,7 +59,7 @@ def read_css():
 def get_ncx():
     global global_root_dir
     global opf_name
-    f=open(global_root_dir+"META-INF/"+"container.xml", "r")
+    f=open(global_root_dir+"META-INF/"+"container.xml", "r",encoding="utf8")
     data=f.read()
     soup = BeautifulSoup(data, 'html.parser')
     l=soup.find_all("rootfile")
@@ -65,25 +73,25 @@ def get_ncx():
             splitx=pathx.split("/")
             global_root_dir= global_root_dir+splitx[0]+"/"
             opf_name=splitx[1]
-            f=open(global_root_dir+splitx[1],"r")
+            f=open(global_root_dir+splitx[1],"r",encoding='utf-8')
             soup = BeautifulSoup(f.read(), 'lxml')
             a=soup.find("manifest")
             ncx_file=a.find(id="ncx").get("href")
             if(ncx_file is None):
                 print("NCX file not found")
                 quit()
-            f=open(global_root_dir+ncx_file,"r")
+            f=open(global_root_dir+ncx_file,"r",encoding="utf8")
             return f.read()
         else:
             opf_name=pathx
-            f=open(global_root_dir+pathx,"r")
+            f=open(global_root_dir+pathx,"r",encoding="utf8")
             soup = BeautifulSoup(f.read(), 'lxml')
             a=soup.find("manifest")
             ncx_file=a.find(id="ncx").get("href")
             if(ncx_file is None):
                 print("NCX file not found")
                 quit()
-            f=open(global_root_dir+ncx_file,"r")
+            f=open(global_root_dir+ncx_file,"r",encoding="utf8")
             return f.read()
         
 def writepdf(file_data):
@@ -98,9 +106,9 @@ def writepdf(file_data):
 def generatepdf():
     global global_root_dir
     data=get_ncx()
-    f=open(global_root_dir+"temp.xhtml","w")
+    f=open(global_root_dir+"temp.xhtml","w",encoding="utf8")
     # try:
-    #     with open (global_root_dir+"toc.ncx", "r") as myfile:
+    #     with open (global_root_dir+"toc.ncx", "r",encoding="utf8") as myfile:
     #         data=myfile.read()
     # except:
     #     frameinfo = getframeinfo(currentframe())
@@ -116,18 +124,18 @@ def generatepdf():
         if(prev==temp1):
             continue
         else:
-            with open (global_root_dir+ temp1, "r") as xhtml_epub:
+            with open (global_root_dir+ temp1, "r",encoding="utf8") as xhtml_epub:
                 xhtml_data=xhtml_epub.read()
                 f.write(xhtml_data)
         prev=temp1
     f.close()
-    f=open(global_root_dir+"temp.xhtml","r")
+    f=open(global_root_dir+"temp.xhtml","r",encoding="utf8")
     writepdf(f.read())
 
 
 def extract_zip_to_temp(path):
     with zipfile.ZipFile(path, 'r') as zip_ref:
-        ret=zip_ref.extractall("/tmp/epub_temp/")
+        ret=zip_ref.extractall(tmp_dir+"/epub_temp/")
 
 if __name__ == "__main__": 
     unzip_file_path=sys.argv[1]
@@ -137,15 +145,15 @@ if __name__ == "__main__":
     if(last4!="epub"):
         print("It's a {} file".format(last4))
         quit()
-    shutil.copy(unzip_file_path,"/tmp/epub_temp.zip")
+    shutil.copy(unzip_file_path,tmp_dir+"/epub_temp.zip")
     try:
-        shutil.rmtree("/tmp/epub_temp")
+        shutil.rmtree(tmp_dir+"/epub_temp")
     except:
         print("")
-    os.mkdir('/tmp/epub_temp')
-    extract_zip_to_temp("/tmp/epub_temp.zip")
-    global_root_dir="/tmp/epub_temp/"
+    os.mkdir(tmp_dir+'/epub_temp')
+    extract_zip_to_temp(tmp_dir+"/epub_temp.zip")
+    global_root_dir=tmp_dir+"/epub_temp/"
     # print(unzip_file_path)
     filename=filename[:-4]
     generatepdf()
-    shutil.rmtree("/tmp/epub_temp")
+    shutil.rmtree(tmp_dir+"/epub_temp")
