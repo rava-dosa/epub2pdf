@@ -1,14 +1,15 @@
-from bs4 import BeautifulSoup
-from weasyprint import HTML, CSS, default_url_fetcher
-from weasyprint.fonts import FontConfiguration
-from os import listdir
+import re
 import sys
 import shutil
 import zipfile
 import os
-from inspect import currentframe, getframeinfo
 import logging
 from sys import platform
+
+from bs4 import BeautifulSoup
+from weasyprint import HTML, CSS, default_url_fetcher
+from weasyprint.fonts import FontConfiguration
+
 
 if platform == "linux" or platform == "linux2":
     # linux
@@ -32,8 +33,6 @@ def image_base_url():
     soup = BeautifulSoup(f.read(), "lxml")
     a = soup.find("manifest")
     try:
-        # img_jpg=soup.find("item",{"media-type":"image/jpeg"}).get("href")
-        # soup.find("item",{"media-type":"image/jpeg"}).get("href")
         img_jpgs = soup.find_all("item", {"media-type": "image/jpeg"})
         for img_jpg in img_jpgs:
             try:
@@ -126,6 +125,26 @@ def writepdf(file_data):
     html.write_pdf(filename + ".pdf", stylesheets=css, font_config=font_config)
 
 
+def get_href(matched, startStr="href=", endStr="#"):
+    patternStr = matched.group()
+    if patternStr.find("'") != -1:
+        middleStr = "'"
+    elif patternStr.find('"') != -1:
+        middleStr = '"'
+    else:
+        raise Exception("no quotation mark")
+    return startStr + middleStr + endStr
+
+
+def process_href_tag(data):
+    startStr = "href="
+    endStr = "#"
+    patternStr = r'<.*%s(["\' ]+)(.*?)%s.*>' % (startStr, endStr)
+    patternStr = r'%s(["\' ]+)(.*?)%s' % (startStr, endStr)
+    p = re.compile(patternStr, re.IGNORECASE)
+    file_data_m = re.sub(p, get_href, data, count=0, flags=0)
+    return file_data_m
+
 def generatepdf():
     global global_root_dir
     data = get_ncx()
@@ -138,7 +157,8 @@ def generatepdf():
         else:
             with open(global_root_dir + toc_file, "r", encoding="utf8") as xhtml_epub:
                 xhtml_data = xhtml_epub.read()
-                f.write(xhtml_data)
+                xhtml_data_m = process_href_tag(xhtml_data)
+                f.write(xhtml_data_m)
         prev = toc_file
 
     f.close()
