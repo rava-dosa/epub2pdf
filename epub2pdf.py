@@ -167,7 +167,6 @@ if __name__ == "__main__":
     os.mkdir(tmp_dir + "/epub_temp")
     extract_zip_to_temp(tmp_dir + "/epub_temp.zip")
     global_root_dir = tmp_dir + "/epub_temp/"
-    global_root_dir = tmp_dir + "/3/"
     # print(unzip_file_path)
     filename = filename[:-4]
     generatepdf()
