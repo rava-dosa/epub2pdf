@@ -6,12 +6,15 @@ import time
 import logging
 import argparse
 from sys import platform
+from collections import defaultdict
 
-
+import tinycss2
 from tqdm import tqdm
 from bs4 import BeautifulSoup
 from weasyprint import HTML
 from weasyprint.fonts import FontConfiguration
+
+from css_utils import *
 
 if platform == "linux" or platform == "linux2":
     # linux
@@ -27,9 +30,11 @@ def parse_args():
     parser.add_argument("-o", "--pdf_file_path", help="output pdf file")
     parser.add_argument("-d", "--debug", help="debug mode", action="store_true")
     parser.add_argument("-s", "--sample", help="sample output", action="store_true")
+    parser.add_argument("-f", "--font", help="config font", action="store_true")
     parser.add_argument("-c", "--sample_page", default=10, help="output pdf file")
     parser.add_argument("--extract_dir", default=os.path.join(tmp_dir, "extract/"), help="temp dir")
     parser.add_argument("--extract_zip", default=os.path.join(tmp_dir, "epub_temp.zip"), help="temp zip file")
+    parser.add_argument("--css_file", default=os.path.join(tmp_dir, "tmp.css"), help="temp css file")
     args = parser.parse_args()
     return args
 
@@ -88,6 +93,80 @@ def read_css(root_dir, opf_name):
             ret.append(os.path.join(root_dir,  css_file.get("href")))
     return ret
 
+def get_original_size(css_txt, content_cls):
+
+    found_flag=False
+    rules = tinycss2.parse_stylesheet(css_txt)
+    for rule in rules:
+        # print(rule)
+        if type(rule) is not tinycss2.ast.WhitespaceToken:
+            for token in rule.prelude:
+                if token.value==content_cls:
+                    found_flag=True
+                    # print(tinycss2.parse_declaration_list(rule.content))
+                    break
+        if found_flag:
+            break
+    found_font_size_flag=False
+    if found_flag:
+        for token in rule.content:
+            if not found_font_size_flag:
+                if token.value=='font-size':
+                    found_font_size_flag=True
+                    continue
+            if found_font_size_flag:
+                if token.type=='dimension':
+                    print(f'original font-size is  {token.value}{token.unit}')
+                    return token.value,token.unit
+    return None,None
+
+def standard_unit(font_size,font_unit):
+    if not font_size:
+        return 2,'em'
+    assert font_unit in ['em','px']
+    # 1em=16px
+    if font_unit == 'px':
+        font_size = font_size/16
+        font_unit='em'
+    return font_size,font_unit
+
+
+def config_css(args,root_dir,opf_name,content_cls_sorted,font_size=2.0,font_unit='em'):
+    font_size,font_unit=standard_unit(font_size,font_unit)
+
+    content_cls=content_cls_sorted[0][0]
+    print(f'set content class to {content_cls}')
+
+    
+    css_files = read_css(root_dir, opf_name)
+    content_rule_list=[]
+    for css_file in css_files:
+        print("config css:", css_file)
+        # process css file
+        with open(css_file, "r", encoding="utf8") as f:
+            css_txt=f.read()
+        if css_txt.find(content_cls) != -1:
+            # 1. find content initial size
+            origin_size,origint_unit=get_original_size(css_txt, content_cls)
+            origin_size,origint_unit=standard_unit(origin_size,origint_unit)
+            # 2. record ratio
+            ratio=font_size/origin_size
+            # 3. set content size to font_size 
+            content_rule=custom_rule(content_cls,font_size=font_size,font_unit=font_unit)
+            content_rule_list.append(content_rule)
+            # 4. set others font size according to ratio
+            for content_cls_sorted_item in content_cls_sorted[1:]:
+                print('process ', content_cls_sorted_item[0])
+                origin_size,origint_unit=get_original_size(css_txt, content_cls_sorted_item[0])
+                origin_size,origint_unit=standard_unit(origin_size,origint_unit)
+                new_size=round(origin_size*ratio,2)
+                content_rule=custom_rule(content_cls_sorted_item[0],font_size=new_size,font_unit=font_unit)
+                content_rule_list.append(content_rule)
+    with open(args.css_file, 'w', encoding="utf8") as f:
+        # f.write(css_txt)
+        for rule in content_rule_list:
+            f.write(rule.serialize()+'\n')
+
 
 def get_opf_name(root_dir):
     f = open(os.path.join(root_dir, "META-INF/", "container.xml"), "r", encoding="utf8")
@@ -109,11 +188,16 @@ def get_opf_name(root_dir):
     return opf_name
 
 
-def writepdf(temp_xhtml_path, filename, root_dir, opf_name):
+def writepdf(args,temp_xhtml_path, filename, root_dir, opf_name):
     with open(temp_xhtml_path, "r", encoding="utf8") as f:
         file_data = f.read()
     font_config = FontConfiguration()
     css = read_css(root_dir, opf_name)
+    if args.font:
+        if os.path.exists(args.css_file):
+            css.append(args.css_file)
+        else:
+            logging.warning(f"{args.css_file} not created")
     image_base = image_base_url(root_dir, opf_name)
     html = HTML(string=file_data, base_url=image_base, encoding="utf8")
     print("rendering html to pdf ...")
@@ -154,6 +238,8 @@ def generatepdf(root_dir, opf_name, sample=False, sample_page=10):
             file_cnt = sample_page
         else:
             file_cnt = len(toc_files)
+
+        content_cls_dict=defaultdict(int)
         progress_bar = tqdm(range(file_cnt), desc="Generating PDF")
 
         for i, toc_file in zip(progress_bar, toc_files):
@@ -165,11 +251,23 @@ def generatepdf(root_dir, opf_name, sample=False, sample_page=10):
                     os.path.join(root_dir, toc_file), "r", encoding="utf8"
                 ) as xhtml_epub:
                     xhtml_data = xhtml_epub.read()
+                    soup = BeautifulSoup(xhtml_data, "lxml")
+                    for p in soup.find_all('p'):
+                        try:
+                            classes=p.get('class')
+                            for cls in classes:
+                                if cls not in ['center','right','left','justify']:
+                                    content_cls_dict[cls]+=1
+                        except:
+                            pass
                     xhtml_data_m = process_href_tag(xhtml_data)
                     f.write(xhtml_data_m)
             prev = toc_file
+        print(content_cls_dict)
+        print(sorted(list(content_cls_dict.items()),key=lambda x:x[1], reverse=True))
+        content_cls_sorted=sorted(list(content_cls_dict.items()),key=lambda x:x[1], reverse=True)
 
-    return temp_xhtml_path
+    return temp_xhtml_path,content_cls_sorted
 
 
 def extract_zip_to_temp(args):
@@ -207,8 +305,10 @@ def main():
     extract_zip_to_temp(args)
     
     opf_name = get_opf_name(extract_dir)
-    temp_xhtml_path=generatepdf(extract_dir, opf_name, sample=args.sample, sample_page=args.sample_page)
-    writepdf(temp_xhtml_path, pdf_file_path, extract_dir, opf_name)
+    temp_xhtml_path,content_cls_sorted=generatepdf(extract_dir, opf_name, sample=args.sample, sample_page=args.sample_page)
+    if args.font:
+        config_css(args,extract_dir, opf_name,content_cls_sorted)
+    writepdf(args,temp_xhtml_path, pdf_file_path, extract_dir, opf_name)
     if not args.debug:
         shutil.rmtree(extract_dir)
 
