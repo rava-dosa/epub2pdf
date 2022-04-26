@@ -1,17 +1,17 @@
 import re
-import sys
 import shutil
 import zipfile
 import os
 import time
 import logging
+import argparse
 from sys import platform
+
 
 from tqdm import tqdm
 from bs4 import BeautifulSoup
 from weasyprint import HTML
 from weasyprint.fonts import FontConfiguration
-
 
 if platform == "linux" or platform == "linux2":
     # linux
@@ -20,14 +20,25 @@ else:
     tmp_dir = "tmp"
     if not os.path.exists(tmp_dir):
         os.mkdir(tmp_dir)
-extract_dir=os.path.join(tmp_dir,'extract/')
-extract_zip=os.path.join(tmp_dir,'epub_temp.zip')
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--epub_file_path", help="input epub file")
+    parser.add_argument("-o", "--pdf_file_path", help="output pdf file")
+    parser.add_argument("-d", "--debug", help="debug mode", action="store_true")
+    parser.add_argument("-s", "--sample", help="sample output", action="store_true")
+    parser.add_argument("-c", "--sample_page", default=10, help="output pdf file")
+    parser.add_argument("--extract_dir", default=os.path.join(tmp_dir, "extract/"), help="temp dir")
+    parser.add_argument("--extract_zip", default=os.path.join(tmp_dir, "epub_temp.zip"), help="temp zip file")
+    args = parser.parse_args()
+    return args
 
 logger = logging.getLogger("weasyprint")
-logger.addHandler(logging.FileHandler(os.path.join(tmp_dir , "weasyprint.log")))
+logger.addHandler(logging.FileHandler(os.path.join(tmp_dir, "weasyprint.log")))
 
-def image_base_url(root_dir,opf_name):
-    f = open(os.path.join(root_dir ,opf_name), "r", encoding="utf8")
+
+def image_base_url(root_dir, opf_name):
+    f = open(os.path.join(root_dir, opf_name), "r", encoding="utf8")
     soup = BeautifulSoup(f.read(), "lxml")
     a = soup.find("manifest")
     try:
@@ -65,29 +76,27 @@ def get_files(root_dir, opf_name):
     return ret
 
 
-def read_css(root_dir,opf_name):
+def read_css(root_dir, opf_name):
     ret = []
-    f = open(os.path.join(root_dir , opf_name), "r", encoding="utf8")
+    f = open(os.path.join(root_dir, opf_name), "r", encoding="utf8")
     soup = BeautifulSoup(f.read(), "lxml")
-    a = soup.find("manifest")
-
-    # css_file=a.find("item",{"media-type":"text/css"}).get("href")
     css_files = soup.find_all("item", {"media-type": "text/css"})
     if css_files is None:
         print("Css not found")
     else:
         for css_file in css_files:
-            ret.append(root_dir + css_file.get("href"))
+            ret.append(os.path.join(root_dir,  css_file.get("href")))
     return ret
 
+
 def get_opf_name(root_dir):
-    f = open(os.path.join(root_dir , "META-INF/" , "container.xml"), "r", encoding="utf8")
+    f = open(os.path.join(root_dir, "META-INF/", "container.xml"), "r", encoding="utf8")
     data = f.read()
     soup = BeautifulSoup(data, "html.parser")
     l = soup.find_all("rootfile")
     if len(l) == 0:
-        print("no rootfile found")
-        quit()
+        raise Exception(f"no rootfile found")
+
     else:
         l1 = l[0]
         pathx = l1.get("full-path")
@@ -99,14 +108,21 @@ def get_opf_name(root_dir):
             opf_name = pathx
     return opf_name
 
-def writepdf(file_data,filename,root_dir,opf_name):
+
+def writepdf(temp_xhtml_path, filename, root_dir, opf_name):
+    with open(temp_xhtml_path, "r", encoding="utf8") as f:
+        file_data = f.read()
     font_config = FontConfiguration()
-    css = read_css(root_dir,opf_name)
-    image_base=  image_base_url(root_dir,opf_name)
+    css = read_css(root_dir, opf_name)
+    image_base = image_base_url(root_dir, opf_name)
     html = HTML(string=file_data, base_url=image_base, encoding="utf8")
     print("rendering html to pdf ...")
+    start = time.time()
     html.write_pdf(filename, stylesheets=css, font_config=font_config)
-    print("finished! save to ",filename)
+    print("rendering time {0:f} s,".format((time.time() - start)))
+    print("finished! save to ", filename)
+    
+
 
 
 def get_href(matched, startStr="href=", endStr="#"):
@@ -128,58 +144,74 @@ def process_href_tag(data):
     file_data_m = re.sub(p, get_href, data, count=0, flags=0)
     return file_data_m
 
-def generatepdf(root_dir,opf_name):
-    f = open(os.path.join(root_dir , "temp.xhtml"), "w", encoding="utf8")
-    toc_files = get_files(root_dir, opf_name)
-    prev = ""
-    file_cnt=len(toc_files)
-    progress_bar=tqdm(range(file_cnt), desc="Generating PDF")
 
-    for i,toc_file in zip(progress_bar,toc_files):
-        progress_bar.set_description(f'{i+1}/{file_cnt}')
-        if prev == toc_file:
-            continue
+def generatepdf(root_dir, opf_name, sample=False, sample_page=10):
+    temp_xhtml_path=os.path.join(root_dir, "temp.xhtml")
+    with open(temp_xhtml_path, "w", encoding="utf8") as f:
+        toc_files = get_files(root_dir, opf_name)
+        prev = ""
+        if sample:
+            file_cnt = sample_page
         else:
-            with open(os.path.join(root_dir, toc_file), "r", encoding="utf8") as xhtml_epub:
-                xhtml_data = xhtml_epub.read()
-                xhtml_data_m = process_href_tag(xhtml_data)
-                f.write(xhtml_data_m)
-        prev = toc_file
+            file_cnt = len(toc_files)
+        progress_bar = tqdm(range(file_cnt), desc="Generating PDF")
 
-    f.close()
-    
+        for i, toc_file in zip(progress_bar, toc_files):
+            progress_bar.set_description(f"{i+1}/{file_cnt}")
+            if prev == toc_file:
+                continue
+            else:
+                with open(
+                    os.path.join(root_dir, toc_file), "r", encoding="utf8"
+                ) as xhtml_epub:
+                    xhtml_data = xhtml_epub.read()
+                    xhtml_data_m = process_href_tag(xhtml_data)
+                    f.write(xhtml_data_m)
+            prev = toc_file
+
+    return temp_xhtml_path
 
 
-def extract_zip_to_temp(extract_zip,extract_dir):
-    with zipfile.ZipFile(extract_zip, "r") as zip_ref:
-        ret = zip_ref.extractall(extract_dir)
-
-
-if __name__ == "__main__":
-    unzip_file_path = sys.argv[1]
-    filename = unzip_file_path.split("/")[-1]
-    print(filename)
-    file_suffix = filename.split(".")[-1]
-    if file_suffix != "epub":
-        print("It's a {} file".format(file_suffix))
-        quit()
-    shutil.copy(unzip_file_path, extract_zip)
+def extract_zip_to_temp(args):
+    epub_file_path=args.epub_file_path
+    extract_zip=args.extract_zip
+    extract_dir=args.extract_dir
+    shutil.copy(epub_file_path, extract_zip)
     try:
         shutil.rmtree(extract_dir)
     except:
         print("")
-    
     os.mkdir(extract_dir)
-    extract_zip_to_temp(extract_zip,extract_dir)
-    print(extract_dir)
-    # print(unzip_file_path)
-    filename = filename.split(".")[0] + ".pdf"
-    opf_name=get_opf_name(extract_dir)
-    generatepdf(extract_dir,opf_name)
-    with open(os.path.join(extract_dir , "temp.xhtml"), "r", encoding="utf8") as f:
-        temp_xhtml=f.read()
-    start=time.time()
+    with zipfile.ZipFile(extract_zip, "r") as zip_ref:
+        ret = zip_ref.extractall(extract_dir)
+    print('extract epub to ',extract_dir)
+
+def process_filename(args):
+    filename = os.path.basename(args.epub_file_path)
+    file_prefix = filename.split(".")[0]
+    file_suffix = filename.split(".")[-1]
+    if file_suffix != "epub":
+        raise Exception(f"not a epub file, It's a {file_suffix} file")
+        
+    if not args.pdf_file_path:
+        pdf_file_path = file_prefix + ".pdf"
+    else:
+        pdf_file_path=args.pdf_file_path
+    return pdf_file_path
+
+def main():
+    args = parse_args()
+    extract_dir=args.extract_dir
+    pdf_file_path=process_filename(args)
+
+    extract_zip_to_temp(args)
     
-    writepdf(temp_xhtml,filename,extract_dir,opf_name )
-    print('rendering time {0:f} s,'.format((time.time()-start)))
-    shutil.rmtree(extract_dir)
+    opf_name = get_opf_name(extract_dir)
+    temp_xhtml_path=generatepdf(extract_dir, opf_name, sample=args.sample, sample_page=args.sample_page)
+    writepdf(temp_xhtml_path, pdf_file_path, extract_dir, opf_name)
+    if not args.debug:
+        shutil.rmtree(extract_dir)
+
+if __name__ == "__main__":
+    main()
+
