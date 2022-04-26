@@ -29,9 +29,13 @@ def parse_args():
     parser.add_argument("-i", "--epub_file_path", help="input epub file")
     parser.add_argument("-o", "--pdf_file_path", help="output pdf file")
     parser.add_argument("-d", "--debug", help="debug mode", action="store_true")
-    parser.add_argument("-s", "--sample", help="sample output", action="store_true")
+    parser.add_argument("-s", "--sample", help="sample page to check", action="store_true")
     parser.add_argument("-f", "--font", help="config font", action="store_true")
-    parser.add_argument("-c", "--sample_page", default=10, help="output pdf file")
+    parser.add_argument("-r", "--ratio", help="config font by ratio", action="store_true")
+    parser.add_argument("--sample_page", default=10, type=int, help="output pdf file of sample page")
+    parser.add_argument("--font_size_ratio", default=1.4, help="font size ratio to original font size")
+    parser.add_argument("--font_size", default=2.0,type=float, help="font size")
+    parser.add_argument("--font_unit", default='em',type=str, help="font size unit 'em' or 'px'")
     parser.add_argument("--extract_dir", default=os.path.join(tmp_dir, "extract/"), help="temp dir")
     parser.add_argument("--extract_zip", default=os.path.join(tmp_dir, "epub_temp.zip"), help="temp zip file")
     parser.add_argument("--css_file", default=os.path.join(tmp_dir, "tmp.css"), help="temp css file")
@@ -131,7 +135,8 @@ def standard_unit(font_size,font_unit):
     return font_size,font_unit
 
 
-def config_css(args,root_dir,opf_name,content_cls_sorted,font_size=2.0,font_unit='em'):
+def config_css(args,root_dir,opf_name,content_cls_sorted):
+    font_size,font_unit= args.font_size,args.font_unit
     font_size,font_unit=standard_unit(font_size,font_unit)
 
     content_cls=content_cls_sorted[0][0]
@@ -146,16 +151,21 @@ def config_css(args,root_dir,opf_name,content_cls_sorted,font_size=2.0,font_unit
         with open(css_file, "r", encoding="utf8") as f:
             css_txt=f.read()
         if css_txt.find(content_cls) != -1:
-            # 1. find content initial size
-            origin_size,origint_unit=get_original_size(css_txt, content_cls)
-            origin_size,origint_unit=standard_unit(origin_size,origint_unit)
-            # 2. record ratio
-            ratio=font_size/origin_size
-            # 3. set content size to font_size 
-            content_rule=custom_rule(content_cls,font_size=font_size,font_unit=font_unit)
-            content_rule_list.append(content_rule)
-            # 4. set others font size according to ratio
-            for content_cls_sorted_item in content_cls_sorted[1:]:
+            if args.ratio:
+                start_idx=0
+                ratio=args.font_size_ratio
+            else:
+                # 1. find content initial size
+                origin_size,origint_unit=get_original_size(css_txt, content_cls)
+                origin_size,origint_unit=standard_unit(origin_size,origint_unit)
+                # 2. record ratio
+                ratio=font_size/origin_size
+                # 3. set content size to font_size 
+                content_rule=custom_rule(content_cls,font_size=font_size,font_unit=font_unit)
+                content_rule_list.append(content_rule)
+                # 4. set others font size according to ratio
+                start_idx=1
+            for content_cls_sorted_item in content_cls_sorted[start_idx:]:
                 print('process ', content_cls_sorted_item[0])
                 origin_size,origint_unit=get_original_size(css_txt, content_cls_sorted_item[0])
                 origin_size,origint_unit=standard_unit(origin_size,origint_unit)

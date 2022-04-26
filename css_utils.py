@@ -10,6 +10,8 @@ from http import HTTPStatus
 class IdentName():
     margin_right='margin-right'
     margin_left='margin-left'
+    margin_bottom='margin-bottom'
+    margin_top='margin-top'
     letter_spacing='letter-spacing'
     line_height='line-height'
     text_align='text-align'
@@ -57,17 +59,19 @@ def config_prelude(ident_key:str)->List[Node]:
     # <IdentToken calibre6>
     # <WhitespaceToken>
 
-def custom_config(rules:list,font_size=2.0,font_unit='em',margin_right=50,margin_left=50,letter_spacing=2,line_height=150,text_align='left'):
+def custom_config(rules:list,font_size=2.0,font_unit='em',margin_right=50,margin_left=50,margin_top=65,margin_bottom=65,letter_spacing=2,line_height=150,text_align='left'):
     config_font_size(rules,font_size,font_unit)
     config_dimension(rules,IdentName.margin_right,margin_left,'px')
     config_dimension(rules,IdentName.margin_left,margin_right,'px')
+    config_dimension(rules,IdentName.margin_top,margin_top,'px')
+    config_dimension(rules,IdentName.margin_bottom,margin_bottom,'px')
     config_dimension(rules,IdentName.letter_spacing,letter_spacing,'px')
     config_percentage(rules,IdentName.line_height,line_height)
     config_ident(rules,IdentName.text_align,text_align)
 
-def custom_rule(prelude_ident:str,font_size=2.0,font_unit='em',margin_right=50,margin_left=50,letter_spacing=2,line_height=150,text_align='left')->QualifiedRule:
+def custom_rule(prelude_ident:str,font_size=2.0,font_unit='em',margin_right=50,margin_left=50,margin_top=65,margin_bottom=65,letter_spacing=2,line_height=150,text_align='left')->QualifiedRule:
     rules=[]
-    custom_config(rules,font_size,font_unit,margin_right,margin_left,letter_spacing,line_height,text_align)
+    custom_config(rules,font_size,font_unit,margin_right,margin_left,margin_top,margin_bottom, letter_spacing,line_height,text_align)
     prelude=config_prelude(prelude_ident)
     return QualifiedRule(1,2,prelude,rules)
     
@@ -75,8 +79,10 @@ def custom_rule(prelude_ident:str,font_size=2.0,font_unit='em',margin_right=50,m
 def default_rule(prelude_ident:str)->QualifiedRule:
     rules=[]
     config_font_size(rules,2.0,'em')
-    config_dimension(rules,IdentName.margin_right,50,'px')
-    config_dimension(rules,IdentName.margin_left,50,'px')
+    config_dimension(rules,IdentName.margin_right,55,'px')
+    config_dimension(rules,IdentName.margin_left,55,'px')
+    config_dimension(rules,IdentName.margin_right,65,'px')
+    config_dimension(rules,IdentName.margin_left,65,'px')
     config_dimension(rules,IdentName.letter_spacing,2,'px')
     config_percentage(rules,IdentName.line_height,150)
     config_ident(rules,IdentName.text_align,'left')

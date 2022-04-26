@@ -4,8 +4,19 @@
 2. source activate epub
 
 # Epub2pdf
-1. python epub2pdf.py "{filepath}"
+1. `python epub2pdf.py -i [EPUBPATH] -o [PDFPATH]`
 2. It will generate {filename}.pdf in current directory
+## New Feature
+
+1. sample output pages    
+  `python epub2pdf.py -i [EPUBPATH] -o [PDFPATH] -s --sample_page [PAGE]`
+  
+2. change font size
+     - by ratio   
+     `python epub2pdf.py -i [EPUBPATH] -o [PDFPATH] -r --font_size_ratio [RATIO]`
+     - by given size    
+     `python epub2pdf.py -i [EPUBPATH] -o [PDFPATH] -r --font_size [FONTSIZE] --font_unit [px|em]`
+   
 
 # Mobi2PDf
 1. python mobi2pdf.pf "{filepath}"
@@ -23,10 +34,15 @@
  locate content files in content.opf instead of toc.ncx
 - toc lost
   use regex to update hyperlink
+- better css format
+  1. parse css file
+  2. load content selector
+  3. change to suiltable setting
 
 # TODO 
-- [] config Font
-- [] better css format
+- [√] config Font
+- [√] better css format
+- [] better page organize
 - [] transfer update to mobi
 
 # How it works [Epub]
