@@ -105,13 +105,23 @@ class UpdateCSS():
 
 def process_css_url(data,css_updater):
     
+    # replace relative css url to absolute url
     soup = BeautifulSoup(data, "lxml")
     css_items = soup.find_all("link", {"type": "text/css"})
     for item in css_items:
         css_url=item.get("href")
         css_file = css_updater.pair_css_url(css_url)
         data=data.replace(css_url,css_file)
-    data=css_inline.inline(data)
+
+    # not inline stylesheet css
+    soup = BeautifulSoup(data, "lxml")
+    css_items = soup.find_all("link", {"type": "text/css"})
+    for item in css_items:
+        if item.get("href") and os.path.basename(item.get("href"))=="stylesheet.css":
+            item.decompose()
+    data=css_inline.inline(soup.prettify())
+    
+    # remove other css
     soup = BeautifulSoup(data, "lxml")
     css_items = soup.find_all("style", {"type": "text/css"})
     for item in css_items:
@@ -183,6 +193,7 @@ def config_css(args,root_dir,opf_name,content_cls_sorted):
         # process css file
         with open(css_file, "r", encoding="utf8") as f:
             css_txt=f.read()
+        content_rule_list.append(custom_page_rule())
         if css_txt.find(content_cls) != -1:
             if args.ratio:
                 start_idx=0
@@ -194,7 +205,7 @@ def config_css(args,root_dir,opf_name,content_cls_sorted):
                 # 2. record ratio
                 ratio=font_size/origin_size
                 # 3. set content size to font_size 
-                content_rule=custom_rule(content_cls,font_size=font_size,font_unit=font_unit)
+                content_rule=custom_font_rule(content_cls,font_size=font_size,font_unit=font_unit)
                 content_rule_list.append(content_rule)
                 # 4. set others font size according to ratio
                 start_idx=1
@@ -203,10 +214,9 @@ def config_css(args,root_dir,opf_name,content_cls_sorted):
                 origin_size,origint_unit=get_original_size(css_txt, content_cls_sorted_item[0])
                 origin_size,origint_unit=standard_unit(origin_size,origint_unit)
                 new_size=round(origin_size*ratio,2)
-                content_rule=custom_rule(content_cls_sorted_item[0],font_size=new_size,font_unit=font_unit)
+                content_rule=custom_font_rule(content_cls_sorted_item[0],font_size=new_size,font_unit=font_unit)
                 content_rule_list.append(content_rule)
     with open(args.css_file, 'w', encoding="utf8") as f:
-        # f.write(css_txt)
         for rule in content_rule_list:
             f.write(rule.serialize()+'\n')
 

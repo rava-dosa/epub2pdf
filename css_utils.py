@@ -2,7 +2,7 @@
 from cmd import IDENTCHARS
 from typing import List
 from tinycss2.ast import Node
-from tinycss2.ast import QualifiedRule
+from tinycss2.ast import QualifiedRule,AtRule
 from tinycss2.ast import WhitespaceToken,IdentToken,LiteralToken,DimensionToken,PercentageToken
 
 from http import HTTPStatus
@@ -49,9 +49,9 @@ def config_node(custom_rule:list,ident_key:str,node:Node)->List[Node]:
     custom_rule.append(LiteralToken(0,0,';'))
     return custom_rule
 
-def config_prelude(ident_key:str)->List[Node]:
+def config_prelude(ident_key:str,prefix:str='.')->List[Node]:
     custom_prelude=[]
-    custom_prelude.append(LiteralToken(0,0,'.'))
+    custom_prelude.append(LiteralToken(0,0,prefix))
     custom_prelude.append(IdentToken(0,0,ident_key))
     custom_prelude.append(WhitespaceToken(0,0,' '))
     return custom_prelude
@@ -60,21 +60,39 @@ def config_prelude(ident_key:str)->List[Node]:
     # <WhitespaceToken>
 
 def custom_config(rules:list,font_size=2.0,font_unit='em',margin_right=50,margin_left=50,margin_top=65,margin_bottom=65,letter_spacing=2,line_height=150,text_align='left'):
+    custom_font_config(rules,font_size,font_unit,letter_spacing,line_height,text_align)
+    custom_margin_config(rules,margin_right,margin_left,margin_top,margin_bottom)
+
+def custom_font_config(rules:list,font_size=2.0,font_unit='em',letter_spacing=2,line_height=150,text_align='left'):
     config_font_size(rules,font_size,font_unit)
+    config_dimension(rules,IdentName.letter_spacing,letter_spacing,'px')
+    config_percentage(rules,IdentName.line_height,line_height)
+    config_ident(rules,IdentName.text_align,text_align)
+
+def custom_margin_config(rules:list,margin_right=50,margin_left=50,margin_top=65,margin_bottom=65):
     config_dimension(rules,IdentName.margin_right,margin_left,'px')
     config_dimension(rules,IdentName.margin_left,margin_right,'px')
     config_dimension(rules,IdentName.margin_top,margin_top,'px')
     config_dimension(rules,IdentName.margin_bottom,margin_bottom,'px')
-    config_dimension(rules,IdentName.letter_spacing,letter_spacing,'px')
-    config_percentage(rules,IdentName.line_height,line_height)
-    config_ident(rules,IdentName.text_align,text_align)
 
 def custom_rule(prelude_ident:str,font_size=2.0,font_unit='em',margin_right=50,margin_left=50,margin_top=65,margin_bottom=65,letter_spacing=2,line_height=150,text_align='left')->QualifiedRule:
     rules=[]
     custom_config(rules,font_size,font_unit,margin_right,margin_left,margin_top,margin_bottom, letter_spacing,line_height,text_align)
     prelude=config_prelude(prelude_ident)
     return QualifiedRule(1,2,prelude,rules)
-    
+
+def custom_font_rule(prelude_ident:str,font_size=2.0,font_unit='em',letter_spacing=2,line_height=150,text_align='left'):
+    rules=[]
+    custom_font_config(rules,font_size,font_unit,letter_spacing,line_height,text_align)
+    prelude=config_prelude(prelude_ident)
+    return QualifiedRule(1,2,prelude,rules)
+
+def custom_page_rule(keyword:str='page',margin_right=50,margin_left=50,margin_top=65,margin_bottom=65):
+    rules=[]
+    custom_margin_config(rules,margin_right,margin_left,margin_top,margin_bottom)
+    prelude=[WhitespaceToken(0,0,' ')]
+    return AtRule(1,2,keyword,keyword,prelude,rules)
+
 
 def default_rule(prelude_ident:str)->QualifiedRule:
     rules=[]
