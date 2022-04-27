@@ -38,11 +38,14 @@
   1. parse css file
   2. load content selector
   3. change to suiltable setting
+- [css overriden problem](https://github.com/Kozea/WeasyPrint/issues/1628)    
+  Thanks to [@liZe](https://github.com/liZe)'s help.      
+  Use [`css-inline`](https://pypi.org/project/css-inline/) to change css style to inline, then it can solve the overriden problem.
 
 # TODO 
 - [√] config Font
 - [√] better css format
-- [] better page organize
+- [√] better page organize
 - [] transfer update to mobi
 
 # How it works [Epub]

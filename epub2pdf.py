@@ -9,10 +9,10 @@ from sys import platform
 from collections import defaultdict
 
 import tinycss2
+import css_inline
 from tqdm import tqdm
 from bs4 import BeautifulSoup
 from weasyprint import HTML
-from weasyprint.fonts import FontConfiguration
 
 from css_utils import *
 
@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument("-f", "--font", help="config font", action="store_true")
     parser.add_argument("-r", "--ratio", help="config font by ratio", action="store_true")
     parser.add_argument("--sample_page", default=10, type=int, help="output pdf file of sample page")
-    parser.add_argument("--font_size_ratio", default=1.4, help="font size ratio to original font size")
+    parser.add_argument("--font_size_ratio", default=1.2, help="font size ratio to original font size")
     parser.add_argument("--font_size", default=2.0,type=float, help="font size")
     parser.add_argument("--font_unit", default='em',type=str, help="font size unit 'em' or 'px'")
     parser.add_argument("--extract_dir", default=os.path.join(tmp_dir, "extract/"), help="temp dir")
@@ -84,6 +84,39 @@ def get_files(root_dir, opf_name):
             ret.append(xml_file.get("href"))
     return ret
 
+class UpdateCSS():
+    def __init__(self,root_dir,opf_name) -> None:
+        self.url2file={}
+        self.css_files=read_css(root_dir,opf_name)
+    def update_css_files(self,files):
+        self.css_files=files
+    def add_css_files(self,files):
+        self.css_files.extend(files)
+    def pair_css_url(self,url):
+        try:
+            return self.url2file[url]
+        except:
+            for file in self.css_files:
+                if os.path.basename(file) == os.path.basename(url):
+                    self.url2file[url]=os.path.abspath(file)
+                    return file
+        logger.warning("css file not found: %s" % url)
+        return ""
+
+def process_css_url(data,css_updater):
+    
+    soup = BeautifulSoup(data, "lxml")
+    css_items = soup.find_all("link", {"type": "text/css"})
+    for item in css_items:
+        css_url=item.get("href")
+        css_file = css_updater.pair_css_url(css_url)
+        data=data.replace(css_url,css_file)
+    data=css_inline.inline(data)
+    soup = BeautifulSoup(data, "lxml")
+    css_items = soup.find_all("style", {"type": "text/css"})
+    for item in css_items:
+        item.decompose()
+    return soup.prettify()
 
 def read_css(root_dir, opf_name):
     ret = []
@@ -201,7 +234,6 @@ def get_opf_name(root_dir):
 def writepdf(args,temp_xhtml_path, filename, root_dir, opf_name):
     with open(temp_xhtml_path, "r", encoding="utf8") as f:
         file_data = f.read()
-    font_config = FontConfiguration()
     css = read_css(root_dir, opf_name)
     if args.font:
         if os.path.exists(args.css_file):
@@ -212,7 +244,7 @@ def writepdf(args,temp_xhtml_path, filename, root_dir, opf_name):
     html = HTML(string=file_data, base_url=image_base, encoding="utf8")
     print("rendering html to pdf ...")
     start = time.time()
-    html.write_pdf(filename, stylesheets=css, font_config=font_config)
+    html.write_pdf(filename, stylesheets=css)
     print("rendering time {0:f} s,".format((time.time() - start)))
     print("finished! save to ", filename)
     
@@ -241,6 +273,7 @@ def process_href_tag(data):
 
 def generatepdf(root_dir, opf_name, sample=False, sample_page=10):
     temp_xhtml_path=os.path.join(root_dir, "temp.xhtml")
+    css_updater=UpdateCSS(root_dir,opf_name)
     with open(temp_xhtml_path, "w", encoding="utf8") as f:
         toc_files = get_files(root_dir, opf_name)
         prev = ""
@@ -271,6 +304,7 @@ def generatepdf(root_dir, opf_name, sample=False, sample_page=10):
                         except:
                             pass
                     xhtml_data_m = process_href_tag(xhtml_data)
+                    xhtml_data_m = process_css_url(xhtml_data_m,css_updater)
                     f.write(xhtml_data_m)
             prev = toc_file
         print(content_cls_dict)
