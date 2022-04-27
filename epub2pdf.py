@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument("-f", "--font", help="config font", action="store_true")
     parser.add_argument("-r", "--ratio", help="config font by ratio", action="store_true")
     parser.add_argument("--sample_page", default=10, type=int, help="output pdf file of sample page")
-    parser.add_argument("--font_size_ratio", default=1.2, help="font size ratio to original font size")
+    parser.add_argument("--font_size_ratio", default=1.2,type=float, help="font size ratio to original font size")
     parser.add_argument("--font_size", default=2.0,type=float, help="font size")
     parser.add_argument("--font_unit", default='em',type=str, help="font size unit 'em' or 'px'")
     parser.add_argument("--extract_dir", default=os.path.join(tmp_dir, "extract/"), help="temp dir")
@@ -215,6 +215,7 @@ def config_css(args,root_dir,opf_name,content_cls_sorted):
                 origin_size,origint_unit=standard_unit(origin_size,origint_unit)
                 new_size=round(origin_size*ratio,2)
                 content_rule=custom_font_rule(content_cls_sorted_item[0],font_size=new_size,font_unit=font_unit)
+                print(f'custom font size from {origin_size}{origint_unit} to {new_size}{origint_unit}')
                 content_rule_list.append(content_rule)
     with open(args.css_file, 'w', encoding="utf8") as f:
         for rule in content_rule_list:
